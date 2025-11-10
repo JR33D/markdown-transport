@@ -1,0 +1,52 @@
+name: Create Release PR
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  release-pr:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # full history needed
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - run: npm ci
+      - run: npm install --save-dev standard-version jq
+
+      - name: Determine next version
+        id: version
+        run: |
+          NEXT_VERSION=$(npx standard-version --dry-run | grep "bumping version" | awk '{print $NF}')
+          echo "Next version is $NEXT_VERSION"
+          echo "NEXT_VERSION=$NEXT_VERSION" >> $GITHUB_ENV
+
+      - name: Create release branch
+        run: |
+          git config user.name "CI Bot"
+          git config user.email "ci@gitea"
+          git checkout -b release/v${NEXT_VERSION}
+          npx standard-version --release-as $NEXT_VERSION --skip.tag
+          git add package.json CHANGELOG.md
+          git commit -m "chore(release): v${NEXT_VERSION}"
+          git push origin release/v${NEXT_VERSION}
+
+      - name: Create PR via Gitea API
+        run: |
+          curl -X POST "https://git.jreed.me/api/v1/repos/JReed/markdown-transport/pulls" \
+            -H "Authorization: token $GITEA_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "head": "release/v'"${NEXT_VERSION}"'",
+              "base": "main",
+              "title": "chore(release): v'"${NEXT_VERSION}"'",
+              "body": "Automated release PR generated from commit messages."
+            }'
+        env:
+          GITEA_TOKEN: ${{ secrets.REPO_TOKEN }}

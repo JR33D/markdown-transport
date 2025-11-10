@@ -2,29 +2,18 @@ name: PR Checks
 
 on:
   pull_request:
-    branches:
-      - main # Trigger on pull requests targeting the main branch
+    branches: [ main ]
 
 jobs:
   lint-build-test:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
-          node-version: '20' # Use Node.js 20, or your preferred version
+          node-version: 20
 
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Lint (Type Check)
-        run: npm run build -- --noEmit # Use tsc for type checking as a basic linting step
-
-      - name: Build
-        run: npm run build
-
-      - name: Test
-        run: npm test # Placeholder: You should add a test script (e.g., using Jest) to your package.json
+      - run: npm ci
+      - run: npm run build
+      - run: npm test

@@ -1,53 +1,17 @@
-name: Release and Publish NPM
+name: Publish Package
 
 on:
   push:
-    branches:
-      - main
+    branches: [ main ]
 
 jobs:
-  release-please:
+  publish:
     runs-on: ubuntu-latest
-    outputs:
-      release_created: ${{ steps.detect.outputs.release_created }}
-      version: ${{ steps.detect.outputs.version }}
 
     steps:
       - uses: actions/checkout@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
         with:
-          node-version: 20
-
-      - name: Install Release Please CLI
-        run: npm install -g release-please
-
-      # Generate release (bumps version + updates changelog + commits + tags)
-      - name: Run Release Please
-        id: release
-        run: |
-          release-please release --release-type=node \
-            --token="${{ secrets.REPO_TOKEN }}" \
-            --repo-url="https://git.jreed.me/JReed/markdown-transport"
-
-      # Detect whether a release was created (CLI does not expose outputs automatically)
-      - name: Detect release
-        id: detect
-        run: |
-          if git tag --contains HEAD | grep -E '^v'; then
-            echo "release_created=true" >> $GITHUB_OUTPUT
-            echo "version=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
-          else
-            echo "release_created=false" >> $GITHUB_OUTPUT
-          fi
-
-  publish-npm:
-    needs: release-please
-    if: ${{ needs.release-please.outputs.release_created == 'true' }}
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
+          fetch-depth: 0
 
       - uses: actions/setup-node@v4
         with:
@@ -55,14 +19,15 @@ jobs:
           registry-url: https://git.jreed.me/api/packages/JReed/npm/
 
       - name: Configure npm authentication
-        run: echo "//git.jreed.me/api/packages/JReed/npm/:_authToken=${NODE_AUTH_TOKEN}" >> ~/.npmrc
+        run: |
+          echo "//git.jreed.me/api/packages/JReed/npm/:_authToken=${NODE_AUTH_TOKEN}" >> ~/.npmrc
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - run: npm ci
       - run: npm run build
 
-      - name: Publish package
-        run: npm publish
+      - name: Publish package to Gitea npm
+        run: npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
