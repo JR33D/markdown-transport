@@ -1,19 +1,33 @@
 {
-  "name": "markdown-content-system",
-  "version": "1.0.0",
-  "description": "Reusable Markdown content management system",
-  "private": true,
+  "name": "markdown-transport",
+  "version": "0.1.1",
+  "description": "Reusable library for loading and parsing Markdown content",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "type": "module",
   "scripts": {
-    "setup": "node init-project.js",
-    "build:lib": "cd markdown-transport && npm run build",
-    "build": "npm run build:lib"
+    "build": "tsc",
+    "build:watch": "tsc --watch",
+    "clean": "rm -rf dist",
+    "release": "standard-version",
+    "release:minor": "standard-version --release-as minor",
+    "release:major": "standard-version --release-as major",
+    "test": "echo \"no test right now\""
   },
   "keywords": [
     "markdown",
-    "content",
-    "blog",
-    "cms"
+    "frontmatter",
+    "content"
   ],
   "author": "",
-  "license": "MIT"
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "typescript": "^5.3.3",
+    "standard-version": "^9.5.0"
+  },
+  "dependencies": {
+    "gray-matter": "^4.0.3",
+    "isomorphic-git": "^1.35.0"
+  }
 }

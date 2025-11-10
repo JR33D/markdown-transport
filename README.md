@@ -1,120 +1,130 @@
-# Markdown Transport Layer
+# markdown-transport
 
-This project is a reusable Markdown reading layer / "transport layer" that can be plugged into any project, whether the content comes from another repo, local filesystem, or remote storage. It abstracts reading, parsing frontmatter, filtering drafts/scheduled posts, and optionally mapping components.
+`markdown-transport` is a TypeScript library designed to provide a flexible and robust "transport layer" for Markdown content. It allows applications to seamlessly read, parse, and manage Markdown files from various sources, including the local filesystem and remote Git repositories.
 
 ## Features
 
-- Read Markdown files from local FS or a remote Git repository.
-- Parse frontmatter (YAML / TOML) and Markdown content.
-- Support metadata fields: title, slug, summary, publishDate, tags, draft.
-- Support scheduling & draft filtering.
-- TypeScript interfaces for consistency.
-- Optional: support custom blocks/components in Markdown (MDX or similar).
-- Framework-agnostic: can plug into Next.js, Astro, or other SSGs.
-- **New:** Git integration with configurable strategies (`clone`, `pull`, `none`).
-- **New:** Support for private Git repositories using username/password or personal access tokens (PATs).
-- **New:** Dedicated `sync()` method to pull latest changes from a remote Git repository.
+-   **Content Loading:** Read Markdown files from a specified local directory or clone/pull from a remote Git repository.
+-   **Frontmatter Parsing:** Automatically parses YAML frontmatter from Markdown files, extracting metadata such as title, slug, publish date, draft status, and tags.
+-   **Content Filtering:** Provides utility functions to filter posts based on criteria like draft status and publish date.
+-   **Content Sorting:** Offers utility functions to sort posts by publish date.
+-   **Git Integration:**
+    *   Configurable strategies (`clone`, `pull`, `none`) for managing content from Git repositories.
+    *   Support for private repositories using username/password or personal access tokens (PATs).
+    *   Dedicated `sync()` method for on-demand updates from remote Git repositories.
+-   **TypeScript Support:** Fully typed with TypeScript interfaces for consistent data structures.
+-   **Framework-Agnostic:** Designed to be easily integrated into any JavaScript/TypeScript project, regardless of the framework (e.g., Next.js, Astro, Node.js applications).
 
-## Folder Structure
+## Installation
 
-```
-/src
-  index.ts             # Main entry point, orchestrates lib modules
-  lib/                 # Core library modules
-    types.ts           # TypeScript interfaces
-    parser.ts          # Frontmatter + Markdown parser
-    filters.ts         # Date filtering, sorting logic
-    git.ts             # Git cloning and pulling logic
-package.json
-tsconfig.json
-README.md
-.gitignore
+To install the library, navigate to the `markdown-transport` directory and run:
+
+```bash
+npm install
 ```
 
-## Usage Example
+## Usage
 
-Here's how you can use the `markdown-transport` library in your project:
+### Basic Usage (Local Filesystem)
+
+```typescript
+import { MarkdownTransport, TransportConfig } from 'markdown-transport';
+import path from 'path';
+
+async function loadLocalContent() {
+  const config: TransportConfig = {
+    contentDir: path.join(__dirname, './my-markdown-files')
+  };
+  const transport = new MarkdownTransport(config);
+  const posts = await transport.loadAll();
+  console.log(posts);
+}
+
+loadLocalContent();
+```
+
+### Usage with Git Repository
+
+You can configure `markdown-transport` to fetch content directly from a Git repository.
 
 ```typescript
 import { MarkdownTransport, TransportConfig, GitAuth } from 'markdown-transport';
-import path from 'path';
 
-async function loadContent() {
-  // Example: Loading from a local content directory
-  const localConfig: TransportConfig = {
-    contentDir: path.join(__dirname, './content')
+async function loadGitContent() {
+  const config: TransportConfig = {
+    gitRepoUrl: 'https://github.com/your-org/your-content-repo.git',
+    gitStrategy: 'pull', // 'clone', 'pull' (clones if not present, pulls otherwise), or 'none'
+    gitLocalPath: './cloned-content', // Optional: persistent local path
+    gitAuth: { // Optional: for private repos
+      username: process.env.GIT_USERNAME,
+      password: process.env.GIT_PASSWORD // Can be PAT
+    },
+    gitAuthorName: process.env.GIT_AUTHOR_NAME, // Optional: for merges during pull
+    gitAuthorEmail: process.env.GIT_AUTHOR_EMAIL // Optional: for merges during pull
   };
-  const localTransport = new MarkdownTransport(localConfig);
-  const localPosts = await localTransport.loadAll();
-  console.log('Local Posts:', localPosts);
+  const transport = new MarkdownTransport(config);
+  const posts = await transport.loadAll();
+  console.log(posts);
+}
 
-  // Example: Loading from a public Git repository (clones into a temporary directory)
-  const gitConfigPublic: TransportConfig = {
-    gitRepoUrl: 'https://github.com/isomorphic-git/isomorphic-git.git',
-    gitStrategy: 'clone' // Default, but explicit for clarity
-  };
-  const gitTransportPublic = new MarkdownTransport(gitConfigPublic);
-  const gitPostsPublic = await gitTransportPublic.loadAll();
-  console.log('Git Public Posts:', gitPostsPublic);
+loadGitContent();
+```
 
-  // Example: Loading from a private Git repository (clones into a specified local path)
-  // Requires GIT_USERNAME and GIT_PASSWORD (or PAT) to be set in your environment or .env file
-  const gitConfigPrivate: TransportConfig = {
-    gitRepoUrl: 'https://github.com/user/private-repo.git',
-    gitStrategy: 'pull', // Pulls if exists, clones if not
-    gitLocalPath: './my-cloned-content', // Persistent local directory
+### Syncing Content
+
+If you've configured a `gitLocalPath` and `gitRepoUrl`, you can explicitly pull updates from the remote repository using the `sync()` method:
+
+```typescript
+import { MarkdownTransport, TransportConfig, GitAuth } from 'markdown-transport';
+
+async function syncContent() {
+  const config: TransportConfig = {
+    gitRepoUrl: 'https://github.com/your-org/your-content-repo.git',
+    gitLocalPath: './cloned-content',
     gitAuth: {
       username: process.env.GIT_USERNAME,
       password: process.env.GIT_PASSWORD
-    }
+    },
+    gitAuthorName: process.env.GIT_AUTHOR_NAME,
+    gitAuthorEmail: process.env.GIT_AUTHOR_EMAIL
   };
-  const gitTransportPrivate = new MarkdownTransport(gitConfigPrivate);
-  const gitPostsPrivate = await gitTransportPrivate.loadAll();
-  console.log('Git Private Posts:', gitPostsPrivate);
+  const transport = new MarkdownTransport(config);
 
-  // Example: Syncing an already cloned private repository
-  if (gitConfigPrivate.gitRepoUrl && gitConfigPrivate.gitLocalPath) {
-    console.log('Syncing private repository...');
-    await gitTransportPrivate.sync();
-    console.log('Private repository synced.');
-  }
+  // Initial load (will clone if not present, or do nothing if strategy is 'none')
+  await transport.loadAll();
+
+  // Later, to get updates:
+  await transport.sync();
+  console.log('Content synced successfully!');
+
+  // Load content again to get the updated files
+  const updatedPosts = await transport.loadAll();
+  console.log(updatedPosts);
 }
 
-loadContent().catch(console.error);
+syncContent();
 ```
 
-### Environment Variables (`.env`)
+## Configuration (`TransportConfig`)
 
-For convenience and security, especially with private repositories, you can use a `.env` file to manage your configuration. The `example-app` demonstrates this.
+The `MarkdownTransport` constructor accepts a `TransportConfig` object with the following properties:
 
-Create a `.env` file in your project root (or `example-app` directory) with the following:
+-   `contentDir?: string`: The path to the local directory containing Markdown files. Used when `gitRepoUrl` is not provided.
+-   `gitRepoUrl?: string`: The URL of the remote Git repository to fetch content from.
+-   `gitAuth?: GitAuth`: An optional object containing `username` and `password` (or PAT) for private Git repositories.
+-   `gitStrategy?: 'clone' | 'pull' | 'none'`:
+    *   `'clone'` (default): Always performs a fresh clone of the repository into `gitLocalPath` (or a temporary directory).
+    *   `'pull'`: If the repository exists at `gitLocalPath`, it will pull the latest changes. If not, it will clone it.
+    *   `'none'`: Skips all Git operations. Content will be loaded from `gitLocalPath` or `contentDir`.
+-   `gitLocalPath?: string`: The path to a local directory where the Git repository should be cloned or pulled. If not provided, a temporary directory will be used for cloning.
+-   `gitAuthorName?: string`: The name to use for Git authoring (e.g., for merges during pull). Defaults to 'Markdown Transport'.
+-   `gitAuthorEmail?: string`: The email to use for Git authoring. Defaults to 'markdown-transport@example.com'.
 
-```
-# The Git repository URL to clone content from.
-# Example: CONTENT_GIT_REPO_URL=https://github.com/isomorphic-git/isomorphic-git.git
-CONTENT_GIT_REPO_URL=
+## Interfaces
 
-# Optional: Git credentials for private repositories.
-# The password can also be a personal access token (PAT).
-GIT_USERNAME=
-GIT_PASSWORD=
+The library exports the following TypeScript interfaces:
 
-# Optional: Git strategy for content loading.
-# Can be 'clone' (default), 'pull' (clones if not present, pulls otherwise), or 'none'.
-GIT_STRATEGY=clone
-
-# Optional: Local path to store the cloned Git repository.
-# If not provided, a temporary directory will be used for 'clone' strategy.
-GIT_LOCAL_PATH=./content-repo
-
-# Optional: Author information for Git operations (e.g., for merges during pull).
-GIT_AUTHOR_NAME="Your Name"
-GIT_AUTHOR_EMAIL="your.email@example.com"
-```
-
-## Extensibility
-
-- Read Markdown from remote URLs or other repos
-- Support MDX or Astro Islands for interactive components
-- Integrate AI-generated Markdown directly
-- Reusable across multiple projects
+-   `PostMetadata`: Describes the structure of the frontmatter data.
+-   `Post`: Represents a parsed Markdown post, including its metadata and content.
+-   `GitAuth`: Describes the structure for Git authentication credentials.
+-   `TransportConfig`: Describes the configuration object for the `MarkdownTransport` class.
