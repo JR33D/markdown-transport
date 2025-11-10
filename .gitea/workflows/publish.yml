@@ -1,56 +1,68 @@
-name: Release Please and Publish NPM
+name: Release and Publish NPM
 
 on:
   push:
     branches:
-      - main # Trigger on push to the main branch
-
-permissions:
-  contents: write # Required for release-please to create releases and update files
-  pull-requests: write # Required for release-please to create release PRs
-  packages: write # Required for publishing to Gitea Package Registry
+      - main
 
 jobs:
   release-please:
     runs-on: ubuntu-latest
     outputs:
-      release_created: ${{ steps.release.outputs.release_created }}
-      tag_name: ${{ steps.release.outputs.tag_name }}
-      version: ${{ steps.release.outputs.version }}
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      release_created: ${{ steps.detect.outputs.release_created }}
+      version: ${{ steps.detect.outputs.version }}
 
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Release Please CLI
+        run: npm install -g release-please
+
+      # Generate release (bumps version + updates changelog + commits + tags)
       - name: Run Release Please
         id: release
-        uses: googleapis/release-please-action@v4
-        with:
-          release-type: node
-          package-name: markdown-transport # Ensure this matches your package.json name
-          changelog-types: '[{"type":"feat","section":"Features","hidden":false},{"type":"fix","section":"Bug Fixes","hidden":false},{"type":"perf","section":"Performance Improvements","hidden":false},{"type":"docs","section":"Documentation","hidden":false},{"type":"chore","section":"Miscellaneous","hidden":false},{"type":"refactor","section":"Code Refactoring","hidden":false},{"type":"test","section":"Tests","hidden":false},{"type":"build","section":"Build System","hidden":false},{"type":"ci","section":"Continuous Integration","hidden":false}]'
+        run: |
+          release-please release --release-type=node \
+            --token="${{ secrets.REPO_TOKEN }}" \
+            --repo-url="https://git.jreed.me/JReed/markdown-transport"
+
+      # Detect whether a release was created (CLI does not expose outputs automatically)
+      - name: Detect release
+        id: detect
+        run: |
+          if git tag --contains HEAD | grep -E '^v'; then
+            echo "release_created=true" >> $GITHUB_OUTPUT
+            echo "version=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
+          else
+            echo "release_created=false" >> $GITHUB_OUTPUT
+          fi
 
   publish-npm:
     needs: release-please
-    if: ${{ needs.release-please.outputs.release_created }}
+    if: ${{ needs.release-please.outputs.release_created == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
-          registry-url: "https://git.jreed.me/api/packages/JReed/npm/"
+          node-version: 20
+          registry-url: https://git.jreed.me/api/packages/JReed/npm/
 
-      - name: Configure npm for Gitea
-        run: |
-          echo "//git.jreed.me/api/packages/JReed/npm/:_authToken=${NODE_AUTH_TOKEN}" >> ~/.npmrc
+      - name: Configure npm authentication
+        run: echo "//git.jreed.me/api/packages/JReed/npm/:_authToken=${NODE_AUTH_TOKEN}" >> ~/.npmrc
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - run: npm ci
       - run: npm run build
 
-      - name: Publish package to Gitea Registry
+      - name: Publish package
         run: npm publish
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
