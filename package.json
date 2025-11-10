@@ -1,0 +1,19 @@
+{
+  "name": "markdown-content-system",
+  "version": "1.0.0",
+  "description": "Reusable Markdown content management system",
+  "private": true,
+  "scripts": {
+    "setup": "node init-project.js",
+    "build:lib": "cd markdown-transport && npm run build",
+    "build": "npm run build:lib"
+  },
+  "keywords": [
+    "markdown",
+    "content",
+    "blog",
+    "cms"
+  ],
+  "author": "",
+  "license": "MIT"
+}

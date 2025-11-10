@@ -1,0 +1,19 @@
+{
+  "name": "example-app",
+  "version": "0.1.0",
+  "description": "Example application using markdown-transport",
+  "type": "module",
+  "scripts": {
+    "start": "node --loader ts-node/esm src/index.ts",
+    "dev": "node --loader ts-node/esm --watch src/index.ts"
+  },
+  "dependencies": {
+    "dotenv": "^16.3.1",
+    "markdown-transport": "file:../markdown-transport"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.3.3"
+  }
+}
