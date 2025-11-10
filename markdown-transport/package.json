@@ -1,6 +1,6 @@
 {
   "name": "markdown-transport",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Reusable library for loading and parsing Markdown content",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -8,7 +8,7 @@
   "scripts": {
     "build": "tsc",
     "build:watch": "tsc --watch",
-    "clean": "rm -rf dist", 
+    "clean": "rm -rf dist",
     "release": "standard-version",
     "release:minor": "standard-version --release-as minor",
     "release:major": "standard-version --release-as major",
