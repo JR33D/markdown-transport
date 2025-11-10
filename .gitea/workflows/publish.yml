@@ -34,22 +34,23 @@ jobs:
     if: ${{ needs.release-please.outputs.release_created }}
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
-          node-version: '20' 
-          registry-url: 'https://git.jreed.me/api/packages/JReed/npm/'
+          node-version: "20"
+          registry-url: "https://git.jreed.me/api/packages/JReed/npm/"
 
-      - name: Install dependencies
-        run: npm ci
+      - name: Configure npm for Gitea
+        run: |
+          echo "//git.jreed.me/api/packages/JReed/npm/:_authToken=${NODE_AUTH_TOKEN}" >> ~/.npmrc
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-      - name: Build package
-        run: npm run build
+      - run: npm ci
+      - run: npm run build
 
-      - name: Publish package to Gitea NPM Registry
+      - name: Publish package to Gitea Registry
         run: npm publish
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
